@@ -1,0 +1,4 @@
+root:x:0:root
+wheel:x:1000:steam
+audio:x:1000:steam
+steam:x:1000:
