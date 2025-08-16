@@ -1,4 +1,5 @@
-#!/bin/zsh
+#!/bin/bash
+set -e
 # -*- mode: sh; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # vim: et sts=4 sw=4
 if [[ $(/usr/bin/id -u) -ne 0 ]]; then
