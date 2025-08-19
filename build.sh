@@ -8,10 +8,10 @@ if [[ $(/usr/bin/id -u) -ne 0 ]]; then
 fi
 export IMG_NAME="steamdeck-repair-${iso_version}.img"
 echo "Clearing cache"
-rm -rf /tmp/.steamos_work/
+rm -rf .steamos_work/
 echo "Cache cleared, building SteamOS"
-./mksteamos -v -w /tmp/.steamos_work/ -o output/ $(pwd)/releng/
-tar -cjf ${IMG_NAME}.bz2 output/*
-rm -rf output/
+./mksteamos -v -w .steamos_work/ -o output/ $(pwd)/releng/
+#tar -cjf ${IMG_NAME}.bz2 output/*
+#rm -rf output/
 echo "Compiled image."
 exit -1
