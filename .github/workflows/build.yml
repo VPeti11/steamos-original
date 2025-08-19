@@ -1,0 +1,106 @@
+name: Build SteamOS leak
+
+on:
+  schedule:
+    - cron: "0 7 * * 5"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --privileged
+
+    steps:
+      - name: Bootstrap container (install git & keyring)
+        run: |
+
+          pacman -Sy --noconfirm --noprogressbar ca-certificates archlinux-keyring git
+          pacman-key --init || true
+          pacman-key --populate archlinux || true
+
+      - name: Checkout repo (full history so artifacts/tags are meaningful)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git (optional for local operations)
+        run: |
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: |
+
+          pacman -Syu --noconfirm --noprogressbar
+          pacman -S --noconfirm \
+            arch-install-scripts base-devel git squashfs-tools mtools dosfstools \
+            xorriso e2fsprogs erofs-utils libarchive gnupg \
+            grub openssl python-docutils shellcheck
+
+      - name: Build IMG
+        run: |
+
+          chmod +x ./build.sh || true
+          chmod +x ./mksteamos.sh || true
+          ./build.sh
+          rm -rf .steamos_work/ || true
+
+      - name: Split img into 1.9GB chunks
+        run: |
+
+          cd releng/output/
+          IMG_FILE=$(ls *.img 2>/dev/null | head -n 1 || true)
+          if [[ -z "${IMG_FILE}" ]]; then
+            echo "ERROR: no .img file found in releng/output/"
+            ls -lah
+            exit 2
+          fi
+          echo "Found IMG: $IMG_FILE"
+          split -b 1900M --numeric-suffixes=0 --suffix-length=2 "$IMG_FILE" "${IMG_FILE}.part"
+          ls -lh
+
+      - name: Upload IMG chunks as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: steamos-img-parts
+          path: releng/output/*.part*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (so the repo context exists)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifacts (IMG parts) into releng/output/
+        uses: actions/download-artifact@v4
+        with:
+          name: steamos-img-parts
+          path: releng/output
+
+      - name: Show downloaded files
+        run: |
+
+          ls -lh releng/output || true
+
+      - name: Create GitHub release and upload assets
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "build-${{ github.run_id }}"
+          name: "SteamOS Build Run #${{ github.run_number }} (ID ${{ github.run_id }})"
+          files: releng/output/*.part*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
