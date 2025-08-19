@@ -14,4 +14,4 @@ echo "Cache cleared, building SteamOS"
 #tar -cjf ${IMG_NAME}.bz2 output/*
 #rm -rf output/
 echo "Compiled image."
-exit -1
+exit 0
